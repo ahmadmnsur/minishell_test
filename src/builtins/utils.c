@@ -48,6 +48,7 @@ void	add_env_var(t_env **env, const char *key, const char *value)
 		return ;
 	new_var->key = ft_strdup(key);
 	new_var->value = ft_strdup(value);
+	new_var->hidden = 0;
 	new_var->next = NULL;
 	if (!*env)
 		*env = new_var;
@@ -71,6 +72,7 @@ void	update_env_var(t_env **env, const char *key, const char *value)
 		{
 			free(tmp->value);
 			tmp->value = ft_strdup(value);
+			tmp->hidden = 0;
 			return ;
 		}
 		tmp = tmp->next;

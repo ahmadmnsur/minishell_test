@@ -86,6 +86,7 @@ int	cd_path(const char *path, t_env *env)
 		free(current_pwd);
 		return (1);
 	}
+	env->two_point = 0;
 	set_env(&env, "OLDPWD", current_pwd, 0);
 	set_env(&env, "PWD", new_pwd, 0);
 	free(new_pwd);
