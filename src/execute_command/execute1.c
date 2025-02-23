@@ -81,8 +81,22 @@ int execute_command(t_tools *tools, char **envp) {
             set_execution_signals();
             // *** Calculate TOTAL pipes ONCE at pipeline START ***
             int total_pipes = count_pipeline_segments(current_parser); // Call count_pipeline_segments ONCE with pipeline START
+            if (process_all_heredocs(tools->parser,tools ) != 0)
+            {
+                // If heredoc processing fails (or is interrupted), handle the error here.
+                // For example, free resources and exit or return an error status.
+                return (EXIT_FAILURE);
+            }
 
-            last_status = if_mult_pipe(tools, current_parser, total_pipes); // Call if_mult_pipe for the pipeline
+            // Now that all heredocs have been processed in the parent,
+            // you can proceed with setting up pipes and forking the children.
+            last_status = if_mult_pipe(tools, current_parser, total_pipes); 
+            if (last_status != 0)
+            {
+                // Handle error in pipeline execution.
+                return (EXIT_FAILURE);
+            }
+            // Call if_mult_pipe for the pipeline
             set_signals();
 
             // Advance current_parser to the node AFTER the pipeline

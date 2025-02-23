@@ -156,47 +156,42 @@ int	**alloc_pipes(int nbr_of_pipe)
 // Corrected: Set up pipes for the child process
 void setup_child_pipes(int command_index, int command_count, int **pipes) {
     printf("DEBUG: Entering setup_child_pipes, command_index: %d, command_count: %d, PID: %d\n",
-           command_index, command_count, getpid()); // Debug entry
+           command_index, command_count, getpid());
 
-    if (command_count > 1) // Only if it's a pipeline
-    {
-        if (command_index == 0) // First command in pipeline (output to pipe)
-        {
-            printf("DEBUG: setup_child_pipes - First command (index: %d), redirecting stdout to pipe write_fd: %d\n",
-                   command_index, pipes[command_index][1]); // Debug stdout redirection
-            dup2(pipes[command_index][1], STDOUT_FILENO); // Redirect stdout to pipe write end
-            close(pipes[command_index][0]);             // Close unused pipe read end
-            close(pipes[command_index][1]);             // Close original pipe write end
-            printf("DEBUG: setup_child_pipes - First command (index: %d), stdout redirected, read_fd closed, write_fd closed\n", command_index); // Debug close fds
+    if (command_count > 1) {
+        int pipe_count = command_count - 1; // there are always command_count-1 pipe pairs
+        // Set up redirection for the current command:
+        if (command_index == 0) { 
+            // First command: redirect stdout to the write end of the first pipe.
+            printf("DEBUG: setup_child_pipes - First command (index: %d), redirecting stdout to pipe[0][1]: %d\n",
+                   command_index, pipes[0][1]);
+            dup2(pipes[0][1], STDOUT_FILENO);
+        } else if (command_index == command_count - 1) { 
+            // Last command: redirect stdin from the read end of the last pipe.
+            printf("DEBUG: setup_child_pipes - Last command (index: %d), redirecting stdin from pipe[%d][0]: %d\n",
+                   command_index, command_index - 1, pipes[command_index - 1][0]);
+            dup2(pipes[command_index - 1][0], STDIN_FILENO);
+        } else { 
+            // Middle command: read from previous pipe, write to next pipe.
+            printf("DEBUG: setup_child_pipes - Middle command (index: %d), redirecting stdin from pipe[%d][0]: %d and stdout to pipe[%d][1]: %d\n",
+                   command_index, command_index - 1, pipes[command_index - 1][0],
+                   command_index, pipes[command_index][1]);
+            dup2(pipes[command_index - 1][0], STDIN_FILENO);
+            dup2(pipes[command_index][1], STDOUT_FILENO);
         }
-        else if (command_index == command_count - 1) // Last command in pipeline (input from pipe)
-        {
-            printf("DEBUG: setup_child_pipes - Last command (index: %d), redirecting stdin from pipe read_fd: %d\n",
-                   command_index, pipes[command_index - 1][0]); // Debug stdin redirection
-            dup2(pipes[command_index - 1][0], STDIN_FILENO); // Redirect stdin from previous pipe read end
-            close(pipes[command_index - 1][0]);         // Close original pipe read end
-            close(pipes[command_index - 1][1]);         // Close unused pipe write end
-            printf("DEBUG: setup_child_pipes - Last command (index: %d), stdin redirected, read_fd closed, write_fd closed\n", command_index); // Debug close fds
+
+        /* Now close all pipe file descriptors inherited by this child.
+           This is important because if any write end remains open in any child,
+           the last command (wc -l) will not receive an EOF and will count extra lines. */
+        for (int i = 0; i < pipe_count; i++) {
+            close(pipes[i][0]);
+            close(pipes[i][1]);
         }
-        else // Middle commands in pipeline (input from previous pipe, output to next pipe)
-        {
-            printf("DEBUG: setup_child_pipes - Middle command (index: %d), redirecting stdin from pipe read_fd: %d, stdout to pipe write_fd: %d\n",
-                   command_index, pipes[command_index - 1][0], pipes[command_index][1]); // Debug stdin/stdout redirection
-            dup2(pipes[command_index - 1][0], STDIN_FILENO); // Redirect stdin from previous pipe read end
-            dup2(pipes[command_index][1], STDOUT_FILENO);     // Redirect stdout to next pipe write end
-            close(pipes[command_index - 1][0]);         // Close original previous pipe read end
-            close(pipes[command_index - 1][1]);         // Close original previous pipe write end
-            close(pipes[command_index][0]);             // Close unused next pipe read end
-            close(pipes[command_index][1]);             // Close original next pipe write end
-             printf("DEBUG: setup_child_pipes - Middle command (index: %d), stdin/stdout redirected, all fds closed\n", command_index); // Debug close fds
-        }
-    }
-    else // No piping - close all pipe ends just in case (shouldn't be needed but safe)
-    {
-        printf("DEBUG: setup_child_pipes - No piping (single command), command_count <= 1, closing all pipes just in case.\n");
-        close_all_pipes(command_count -1, pipes); //Added command_count - 1 to avoid potential negative index. Should be 0 pipes in this case.
+    } else {
+        printf("DEBUG: setup_child_pipes - No piping (single command), nothing to do.\n");
     }
 
-    printf("DEBUG: Exiting setup_child_pipes, PID: %d\n", getpid()); // Debug exit
+    printf("DEBUG: Exiting setup_child_pipes, PID: %d\n", getpid());
 }
+
 
